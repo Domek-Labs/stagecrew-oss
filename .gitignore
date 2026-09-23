@@ -1,0 +1,5 @@
+# Local copy of .env.example carrying real credentials (RELEASE_MIRROR_TOKEN
+# and any future secret this repo's tooling reads from the environment).
+# Never commit a real value — see .env.example and hard gate "No new secrets
+# in repo".
+.env

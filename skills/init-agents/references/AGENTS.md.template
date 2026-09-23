@@ -1,0 +1,364 @@
+---
+# AGENTS.md — Per-Repo-Standards fuer /create-issue und /work-issue.
+# Diese Datei ueberschreibt die Skill-Defaults (L1) und kann pro Issue
+# noch durch einen "## Standards-Override"-Block (L3) ueberschrieben werden.
+#
+# Lege sie im Repo-Root ab und commite sie auf den Default-Branch.
+
+work-issue:
+  branch_pattern: "feature/<scope>-<issue>"      # default; <issue> = issue number → branch↔issue↔PR traceable
+  default_branch: main                           # main | dev
+  pr_base: main                                  # main | dev
+  commit_format: "conventional"                  # type(scope): description
+  syntax_check: "node --check"                   # node | python -m py_compile | tsc --noEmit | ...
+  smoke_test: "docker compose build && docker compose up -d --force-recreate"
+  # smoke_test accepts EITHER a plain string (above; unchanged behaviour) OR a
+  # scope mapping. The /work-issue Tester resolves the scope from the diff paths
+  # (against components.code_globs, or the mapping's own scopes: globs when no
+  # components: block is set) and runs only the matching command. A diff that
+  # matches no scope is skipped as "not applicable to this diff scope". Set
+  # parallel_safe: false for a container-recreating command so it is skipped
+  # (with a reason) when another loop holds an active claim on the repo.
+  #
+  # smoke_test:
+  #   backend: "pytest -q"
+  #   frontend: "pnpm --filter web test"
+  #   default: ""                              # empty = skip when no scope matches
+  #   parallel_safe: false                     # optional, default true
+  #   scopes:                                  # only needed if no components: block
+  #     backend:  ["api/**", "server/**", "**/*.py"]
+  #     frontend: ["web/**", "app/**", "**/*.tsx"]
+  deploy_command: ""                             # optional, else skip
+  linter: ""                                     # optional
+  # The /work-issue Closer always merges the approved PR in-loop (squash-merge,
+  # issue close, remote-branch delete, deploy). There is no merge_policy field —
+  # a legacy one left in an existing AGENTS.md is ignored. Canonical source,
+  # inside the stagecrew plugin at skills/work-issue/SKILL.md, section
+  # "Closer merge behavior":
+  #   https://github.com/Domek-Labs/stagecrew-oss/blob/main/skills/work-issue/SKILL.md
+
+  docs_command: ""                               # OPTIONAL — command that regenerates derived documentation
+  # Derived docs are generated FROM the repo — a dependency graph, a database
+  # schema, a service topology. They differ from described docs (README, ADRs)
+  # in one way that decides everything: described docs can go wrong silently,
+  # derived docs can only go wrong if the generator did not run.
+  #
+  # /work-issue runs this INSIDE the loop, before the Critic, so the regenerated
+  # output lands in the same changeset as the code that caused it. A schema
+  # change becomes visible in review instead of being reconstructed later.
+  #
+  # This field is OPTIONAL: /work-issue's pre-flight does not block when it is
+  # missing. Three states, and they are not the same thing:
+  #   "<command>"  — regenerate these docs in every loop
+  #   ""           — declared: this repo has no derived docs
+  #   (absent)     — nobody has decided yet; the loop says so and continues
+  # Prefer "" over deleting the line: a decision beats a gap.
+  #
+  # Two rules learned the hard way, worth carrying into whatever you set here:
+  #   1. The generated output must carry NO timestamp. A generated-at line makes
+  #      the file change on every run, so the bot commits every time and "the
+  #      file changed" stops meaning anything. Git already records when.
+  #   2. Whatever CHECKS the generated docs must fail loudly when it cannot
+  #      check. A generator that silently skips a missing toolchain produces a
+  #      valid-looking, incomplete file — the failure mode that looks like
+  #      success.
+
+  commit_identity:                                 # optional — author identity for all loop commits
+    name: "Your Name"
+    email: "<id>+<user>@users.noreply.github.com"  # never a company/shared email
+
+  # Optional: test-path globs for the /work-issue Tester's execution-evidence
+  # revert check (opt-in, absent = the revert check records its own documented
+  # absent-field state rather than being silently skipped — never a STOP).
+  # Canonical procedure, inside the stagecrew plugin at
+  # skills/work-issue/SKILL.md, section "Execution evidence":
+  #   https://github.com/Domek-Labs/stagecrew-oss/blob/main/skills/work-issue/SKILL.md
+  # test_globs:
+  #   - "tests/**"
+  #   - "**/*_test.go"
+  #   - "**/*.test.ts"
+
+  # Optional: per-stage model selection (opt-in, absent = inherit the session model for every stage)
+  # Uncomment + fill only to override the default session model for specific stages.
+  # Aliases only: opus | sonnet | haiku | fable — never a pinned model id.
+  # Absent block = zero behavior change (every stage inherits the session model).
+  # Partial blocks are legal: only the keys you set are overridden.
+  # Per-stage reasoning and preset definitions — canonical source, inside the
+  # stagecrew plugin at skills/init-agents/references/model-presets.md:
+  #   https://github.com/Domek-Labs/stagecrew-oss/blob/main/skills/init-agents/references/model-presets.md
+  # models:
+  #   validator:   sonnet
+  #   implementer: opus
+  #   tester:      sonnet
+  #   visual:      sonnet   # stage skipped unless visual: block is set
+  #   critic:      opus
+  #   closer:      sonnet
+
+  # Optional: per-stage reasoning effort (opt-in, absent = the API/session default for every stage)
+  # Same shape, same resolution and same never-STOP posture as models: above.
+  # Levels only: low | medium | high | xhigh | max — absent block = zero behavior change.
+  # Partial blocks are legal: only the keys you set are overridden.
+  # NOTE: the current subagent dispatch carries a model parameter and no effort
+  # parameter, so this block is declarative — resolved and recorded as requested,
+  # not applied. Canonical statement inside the stagecrew plugin at
+  # skills/work-issue/SKILL.md, "Per-stage model and effort dispatch".
+  # Per-stage reasoning and preset effort blocks — same canonical source as models:
+  #   https://github.com/Domek-Labs/stagecrew-oss/blob/main/skills/init-agents/references/model-presets.md
+  # effort:
+  #   validator:   medium
+  #   implementer: xhigh
+  #   tester:      medium
+  #   visual:      medium   # stage skipped unless visual: block is set
+  #   critic:      high
+  #   closer:      low
+
+  # Optional: the loop's two time budgets, in minutes (opt-in, absent = the
+  # plugin's documented defaults — zero behavior change for the fields).
+  # wallclock_cap_min budgets the whole loop. ci_poll_cap_min budgets the
+  # Closer's wait on CI, counted from the moment it starts polling and NOT
+  # drawn from whatever is left of the loop budget — set it to how long THIS
+  # repo's CI actually takes, plus headroom. Neither field is part of the
+  # mandatory completeness check, and a missing, non-numeric or non-positive
+  # value is never a STOP: the loop falls back to the default and says so.
+  # No default is repeated here on purpose — the two numbers, their reasoning
+  # and what would reverse them are canonical inside the stagecrew plugin at
+  # skills/work-issue/SKILL.md, section "Hard caps":
+  #   https://github.com/Domek-Labs/stagecrew-oss/blob/main/skills/work-issue/SKILL.md
+  # wallclock_cap_min: <minutes>
+  # ci_poll_cap_min: <minutes>
+
+  hard_gates:
+    - "No direct edit on main"
+    - "Every MCP tool needs a test example in its doc block"
+    - "No new secrets in repo"
+    # The git/gh interaction conventions — commit identity, the co-author rule
+    # below, PR-body conventions, the squash-merge caveat — are canonical
+    # inside the stagecrew plugin at skills/github/SKILL.md:
+    #   https://github.com/Domek-Labs/stagecrew-oss/blob/main/skills/github/SKILL.md
+    # The next comment is a deliberate copy of that rule, kept so this template
+    # reads standalone in a repo that has no path back into the plugin.
+    - "no_unconfigured_coauthors"                  # no `Co-authored-by:` trailer in commits/PRs unless explicitly configured (scoped to a bot or foreign account becoming a contributor; GitHub appends co-author lines from individual commits on squash-merge, so individual commits must be clean; a same-human commit_identity-vs-merging-account trailer is a distinct, non-violating case — see skills/github/SKILL.md §3, §5)
+
+  default_oos:
+    - "Multi-User-Support"
+    - "Web-Channel-Approvals"
+
+  ac_templates:
+    - "Code passes `node --check` (oder Repo-Aequivalent)"
+    - "Documentation in README/CLAUDE.md aktualisiert"
+    - "No new secrets in repo (Secret-Check passed)"
+
+# Optional: Component Registry (opt-in, absent = zero behavior change)
+# Uncomment + fill only if the repo has real reusable-component patterns
+# (frontend framework and/or backend domain layer). When set, the loop
+# enforces registry reuse: Validator gates in-scope issues, Implementer
+# refuses inline duplicates, Critic runs dupe detection.
+#
+# components:
+#   registry_path: "docs/components.md"          # required if block present
+#   code_globs:                                  # required — the code source-of-truth
+#     - "src/components/**/*.tsx"
+#     - "src/domain/**/*.ts"
+#   usage_policy: "prefer_existing"              # prefer_existing (warn) | strict (STOP + ADR required)
+#   scope: "both"                                # frontend | backend | both (default both)
+
+# Optional: Visual Reviewer Gate (opt-in, absent = zero behavior change)
+# Uncomment + fill only if the repo has a frontend. When set, /work-issue runs
+# a Visual Reviewer stage (3.5, between Tester and Critic) for frontend-scoped
+# issues: it serves the built frontend and inspects it with Playwright (per
+# route x viewport, mobile-first), then posts [stage:visual] PASS|FAIL with
+# screenshots. A gate, not a loop-type. Requires the Playwright MCP; absent -> skipped.
+#
+# visual:
+#   serve_command: "npm run preview"           # required if block present — serve the built frontend
+#   base_url: "http://localhost:4173"          # required — where the served app answers
+#   viewports:                                 # optional; default mobile-first
+#     - { w: 390,  h: 844,  label: mobile }
+#     - { w: 1280, h: 800,  label: desktop }
+#   routes: ["/"]                              # optional default routes; issues can override/extend
+#   console_error_policy: "fail"               # fail | warn (default fail)
+#   screenshot_dir: ".stagecrew/visual"        # optional
+#   scope: "frontend"                          # visual review only applies to frontend work
+
+# Optional plan-issues namespace (opt-in, absent = zero behavior change).
+# areas: the subject vocabulary of this repo. /create-issue offers these values
+# when it sets the area:<name> label on a new issue, and /plan-issues validates
+# against them.
+#   absent (default): every area: value is accepted; /plan-issues notes once per
+#     run that the values are unvalidated. This is a working state, not a defect.
+#   declared: a value outside the list is a WARNING and the label is still
+#     written. Never a STOP — a new area is a normal event, and blocking on one
+#     pushes people back to no label at all.
+# bundle:<name> has no field here: a bundle is a release decision, never
+# configuration, and /plan-issues only ever copies one from a source that
+# already exists.
+#
+# goals: an optional second vocabulary in the SAME plan-issues namespace — the
+# two issue-label axes that keep a backlog actionable:
+#   goal:<value>      exactly one per issue; "what cannot be reached without this"
+#   waiting-on:<value> zero or one; "what blocks this right now" (record who/what
+#                     in the issue — a waiting-on label with no note is worthless)
+# The actionable work-list is a QUERY, never a stored label: <goal> minus every
+# issue carrying waiting-on:*. When goals: is declared, /create-issue offers the
+# listed goals as a single-select and prints the check-question
+# "What happens if we try to reach the goal WITHOUT this issue?" (goal is not
+# urgency); /init-agents creates the goal:* labels.
+#   absent goals: (default) — /create-issue asks no goal question and no goal
+#     labels are created. /work-issue's waiting-on: STOP still applies (it keys
+#     on waiting_prefix, which has a default). Zero behavior change.
+# The axis PREFIXES are configurable (defaults goal: / waiting-on:), so nothing
+# is hardcoded and each repo keeps its own vocabulary in its own language while
+# this plugin stays English-only.
+#
+# This commented block is a COPY ARTIFACT — a template has to be readable
+# standalone, so it carries the shape of the block instead of a pointer to it.
+# It is named as such at the canonical source and in the stagecrew AGENTS.md,
+# and the two change together. Full contract for BOTH axis pairs (grammar,
+# lifetime, sources, the work-list query, the check-question, label retirement)
+# — canonical source, inside the stagecrew plugin at skills/plan-issues/SKILL.md,
+# sections "Label contract — area: and bundle: (canonical)" and
+# "Label contract — goal: and waiting-on: (canonical)":
+#   https://github.com/Domek-Labs/stagecrew-oss/blob/main/skills/plan-issues/SKILL.md
+# plan-issues:
+#   areas: ["retrieval", "safety", "admin", "billing", "ops"]
+#   goals: ["public-launch", "cost-down", "reliability"]
+#   goal_default: "public-launch"    # offered first in the single-select; optional
+#   goal_prefix: "goal:"             # optional; default goal:
+#   waiting_prefix: "waiting-on:"    # optional; default waiting-on:
+
+# Optional strategy namespace (opt-in, absent = zero behavior change).
+# Strategic software development: architecture, planning, documentation,
+# building-block size, component reuse and test evidence considered from the
+# ground up instead of reconstructed afterwards. The hooks for all of that
+# already exist in this file, scattered; this block gives them one opt-in home.
+#   absent (default): nothing is required, nothing is created, no pre-flight
+#     consequence. Same axis as components: / visual: / models:.
+#   declared: partial blocks are legal — only what you set is read. strategy:
+#     is NOT part of the mandatory field-completeness pre-flight; a missing
+#     block never STOPs.
+#
+# feature_axis — a feature: issue-label axis. The PREFIX is configurable (like
+#   goal_prefix / waiting_prefix), so nothing is hardcoded. require_on lists the
+#   issue types that must carry a feature: label once you opt in. flag_over is
+#   SOFT: a feature with more open issues is noted, never blocked — feature size
+#   is caught at issue level by the epic trigger, not by an issue count.
+# design_docs — pointers, not containers. "" is a decision ("no separate PRD"),
+#   the same three-state convention docs_command uses. Set a path only when the
+#   document really exists; otherwise the strategic essence belongs in the
+#   Markdown body of this file.
+# gates — booleans that switch an EXISTING mechanism from optional to
+#   strategically-required. They add no machinery of their own, and a true with
+#   no underlying mechanism configured has nothing to enforce (reported, never a
+#   STOP): architecture_adr -> the ADR practice under docs/adr/;
+#   component_reuse -> the components: block; test_evidence -> smoke_test and
+#   ac_templates; documentation -> docs_command and whichever of YOUR OWN
+#   ac_templates entries concerns documentation (a lookup into this file — no
+#   docs AC template ships with the plugin). Each of those stays canonical where
+#   it already lives — this block only points. A gate never becomes a
+#   precondition for the mechanism it points at: switching one on can only add.
+#   false behaves exactly like an undeclared gate.
+#
+# This commented block is a COPY ARTIFACT — a template has to be readable
+# standalone, so it carries the shape of the block instead of a pointer to it.
+# It is named as such at the canonical source and in the stagecrew AGENTS.md,
+# and the two change together. How much of this block is actually acted on
+# depends on the stagecrew version you run — the sources linked below are the
+# authority for yours. Canonical description of the block's shape and
+# opt-in semantics — inside the stagecrew plugin, in AGENTS.md, section
+# "Strategic Software Development (optional strategy: block)":
+#   https://github.com/Domek-Labs/stagecrew-oss/blob/main/AGENTS.md
+# The feature: LABEL CONTRACT (grammar, cardinality, lifetime, sources,
+# retirement) is not here and not in AGENTS.md — it belongs beside the
+# other issue-label contracts, inside the stagecrew plugin at
+# skills/plan-issues/SKILL.md:
+#   https://github.com/Domek-Labs/stagecrew-oss/blob/main/skills/plan-issues/SKILL.md
+# strategy:
+#   feature_axis:
+#     prefix: "feature:"             # optional; default feature:
+#     require_on: [enhancement]      # issue types that must carry a feature: label
+#     flag_over: 10                  # soft note above this many open issues per feature
+#   design_docs:                     # pointers to documents that already exist — never scaffolded
+#     prd: ""                        # path = it exists; "" = decided, none; key absent = not decided yet
+#     sdd: ""                        # with no design docs the strategic essence goes in the body below
+#   gates:
+#     architecture_adr: true         # behaviour/architecture change -> ADR under docs/adr/
+#     component_reuse:  true         # -> components: block
+#     test_evidence:    true         # -> smoke_test / ac_templates
+#     documentation:    true         # -> docs_command + your own docs ac_template
+
+# Multi-type loop system.
+# Enabled types: 'code' (default, software implementation) and 'research'
+# (knowledge generation with a test matrix). Each type can carry a type_overrides
+# block to override any work-issue: field for issues of that type.
+# models: is a valid key inside type_overrides — e.g. to set a stronger Implementer
+# for evidence-critical research loops without touching the base models block.
+loop_types:
+  enabled: [code, research]
+  default: code
+  type_overrides:
+    research:
+      ac_templates: []                         # docs-only — issue supplies replacement ACs
+      smoke_test: "wc -w docs/research/*.md"   # doc-quality check instead of build-GREEN
+      # Why a research loop wants a stronger Implementer — canonical source,
+      # inside the stagecrew plugin at
+      # skills/init-agents/references/model-presets.md:
+      #   https://github.com/Domek-Labs/stagecrew-oss/blob/main/skills/init-agents/references/model-presets.md
+      # models:
+      #   implementer: opus
+      #   critic:      opus
+      # No effort: block here on purpose — the recommended effort for the code
+      # and the research Implementer is the same, so the base effort: block above
+      # already covers a research loop. Add effort: alongside models: here only if
+      # this repo wants a research loop to differ from its own base block.
+    # Roadmap — commented out until implemented (no version tags):
+    # text:
+    #   ac_templates:
+    #     - "markdownlint passes"
+    #     - "linkcheck green"
+    # decision:
+    #   ac_templates:
+    #     - "ADR format correct"
+    #     - "Constraint coverage complete"
+    # diagnostic:
+    #   ac_templates:
+    #     - "Hypotheses reproducible"
+    #     - "Fix spec clear"
+---
+
+# Agent Instructions for <repo-name>
+
+Narrativ-Kontext fuer Subagents — Architektur-Hinweise, Convention-Erklaerungen,
+"warum so". Wird vor jedem Stage-Briefing als zusaetzlicher Kontext geladen.
+
+## Purpose and Non-Goals
+
+<what this repo is for, and what is explicitly NOT being built>
+
+Filled by /init-agents when the repo declares no PRD (strategy.design_docs.prd
+is ""). With a real PRD, point at it there instead and leave this section short
+or empty — the document is the source, and this must not become a second copy
+of it.
+
+## Architektur (kurz)
+
+<Stack, Hauptkomponenten, Datenfluss>
+
+### Leading Decision
+
+<the one architectural choice everything else follows from, and why>
+
+## Code-Style
+
+<Naming-Conventions, Format-Tools, Imports-Order>
+
+## Test-Conventions
+
+<wo Tests liegen, welche Frameworks, wie geschrieben>
+
+## Deployment
+
+<wie das Repo deployed wird, welche VPS, welcher Service>
+
+## Bekannte Stolpersteine
+
+<recurring footguns, edge-cases die Subagents kennen sollten>

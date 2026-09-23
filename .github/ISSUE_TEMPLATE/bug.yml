@@ -1,0 +1,25 @@
+name: Bug report
+description: A skill or the loop did something it should not have.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran, what you expected, what happened instead. Paste the stage comment or output if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The smallest setup that shows it — an AGENTS.md excerpt and an issue body are usually enough.
+  - type: input
+    id: version
+    attributes:
+      label: stagecrew version
+      description: From `.claude-plugin/plugin.json` of your installed copy.
+  - type: input
+    id: claude
+    attributes:
+      label: Claude Code version and model

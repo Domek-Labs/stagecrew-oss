@@ -1,0 +1,72 @@
+# Repo registry for /work-issue and /create-issue.
+# Live file: ~/.claude/work-issue-paths.yaml (auto-appended on first run).
+#
+# Fields per repo:
+#   repo_path:       local checkout path (required)
+#   live_path:       deployed path for drift check (optional, defaults to repo_path)
+#   default_branch:  main | dev (auto-detected at pre-flight)
+#   pr_base:         main | dev (defaults to default_branch)
+#   git_remote:      GitHub working remote name for push/PR (optional; defaults to origin)
+#   has_dev_branch:  bool (auto-detected)
+#   syntax_check:    command (heuristic default if missing)
+#   smoke_test:      command (otherwise derived from issue test plan)
+#   deploy_command:  command (optional; Closer skips live rebuild if empty)
+#   agents_md_exists: bool (auto-detected at pre-flight)
+
+your-org/your-bot:
+  repo_path: /abs/path/to/your-bot
+  live_path: /abs/path/to/your-bot              # deployed in-place
+  default_branch: main
+  pr_base: main
+  has_dev_branch: false
+  syntax_check: "node --check"
+  smoke_test: "sudo docker compose logs --tail 30 your-bot"
+  deploy_command: "sudo docker compose build your-bot && sudo docker compose up -d --force-recreate your-bot"
+  agents_md_exists: true
+
+your-org/your-plugins-repo:
+  repo_path: /abs/path/to/your-plugins-repo
+  live_path: /abs/path/to/your-plugins-repo
+  default_branch: main
+  pr_base: main
+  has_dev_branch: false
+  syntax_check: "true"                           # markdown-only plugin repo
+  smoke_test: "true"                             # skill docs only
+  deploy_command: ""                             # no live deploy needed
+  agents_md_exists: true
+
+# --- Example with dev-branch flow (commented out) ---
+
+# your-org/typescript-service:
+#   repo_path: /abs/path/to/typescript-service
+#   live_path: /abs/path/to/typescript-service
+#   default_branch: dev
+#   pr_base: dev                                 # feature PRs → dev, dev→main separately
+#   git_remote: upstream                         # GitHub working remote is not `origin` here (origin = legacy mirror)
+#   has_dev_branch: true
+#   syntax_check: "tsc --noEmit"
+#   smoke_test: "pnpm test"
+#   deploy_command: "pnpm build && pm2 restart your-service"
+#   agents_md_exists: true
+
+# your-org/deno-edge-functions:
+#   repo_path: /abs/path/to/deno-edge-functions
+#   live_path: /abs/path/to/deno-edge-functions
+#   default_branch: dev
+#   pr_base: dev
+#   has_dev_branch: true
+#   syntax_check: "deno check"
+#   smoke_test: "deno test"
+#   deploy_command: "supabase functions deploy"
+#   agents_md_exists: true
+
+# your-org/node-channel-plugin:
+#   repo_path: /abs/path/to/node-channel-plugin
+#   live_path: /abs/path/to/node-channel-plugin
+#   default_branch: main
+#   pr_base: main
+#   has_dev_branch: false
+#   syntax_check: "node --check"
+#   smoke_test: "node test/smoke.js"
+#   deploy_command: ""
+#   agents_md_exists: true

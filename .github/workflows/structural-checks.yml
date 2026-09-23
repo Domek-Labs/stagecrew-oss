@@ -1,0 +1,28 @@
+# Advisory CI for the structural check layer.
+#
+# This job carries no check logic: no check list, no thresholds, no globs. It
+# checks the tree out, provides Node, and runs the one entrypoint — the same
+# command the `syntax_check` field in AGENTS.md runs. What is checked is decided
+# in checks/ alone, so this file stays correct however the layer changes.
+#
+# Advisory, not enforcing: this repo is private, so a required status check is
+# unavailable (see CLAUDE.md, "Structural check layer").
+name: structural checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  structural-checks:
+    name: structural checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node checks/run.js

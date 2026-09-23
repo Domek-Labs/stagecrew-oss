@@ -1,0 +1,16 @@
+name: Proposal
+description: An idea for a skill, a stage, or a convention.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The problem you hit, in your own words.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: What should change. A rough idea is fine — accepted proposals are specified in the development repo.

@@ -1,0 +1,14 @@
+{
+  "name": "stagecrew",
+  "owner": {
+    "name": "Dominik Scheinecker"
+  },
+  "plugins": [
+    {
+      "name": "stagecrew",
+      "source": ".",
+      "description": "Agentic loop workflow — an autonomous multi-stage agent crew that specs, builds, tests, critiques and ships a GitHub issue. Spec-driven, never one-shot. Pure-reader: standards live in your repo's AGENTS.md, not in this plugin.",
+      "default": true
+    }
+  ]
+}
